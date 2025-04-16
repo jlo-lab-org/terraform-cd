@@ -47,3 +47,8 @@ variable "flux_kustomizations" {
   }))
   default = []
 }
+
+variable "flux_git_branch" {
+  type = string
+  default = "main"
+}

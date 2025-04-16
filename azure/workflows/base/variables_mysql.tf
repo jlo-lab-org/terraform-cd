@@ -1,7 +1,7 @@
 variable "mysql_server_name" {
   description = "Name of the Azure MySQL Flexible server"
   type        = string
-  default = "mysql-server"
+  default     = "mysql-server"
 
 }
 variable "mysql_server_name_suffix" {
@@ -33,5 +33,5 @@ variable "database_name" {
   description = "Name of the MySQL database"
   type        = string
   default     = "products"
-  
+
 }

@@ -1,0 +1,147 @@
+# 🚀 GitHub Workflows: Terraform Infrastructure Provisioning
+
+This repository includes GitHub Actions workflows to provision and manage Azure infrastructure using Terraform. Follow these steps to install the GitHub CLI (`gh`) and run workflows locally.
+
+---
+
+## 📦 Prerequisites
+
+- GitHub CLI: [Install Guide](https://cli.github.com/manual/installation)
+- Logged in to GitHub via `gh` CLI
+- Access to the repository `ivan-sample-org/terraform-cd`
+
+---
+
+## 🔧 Setup
+
+### 1. Install the GitHub CLI
+
+#### macOS
+```bash
+brew install gh
+```
+
+#### Ubuntu/Debian
+```bash
+sudo apt install gh
+```
+
+#### Windows (PowerShell)
+```powershell
+winget install --id GitHub.cli
+```
+
+Or see the full [installation instructions](https://cli.github.com/manual/installation).
+
+---
+
+### 2. Authenticate with GitHub
+
+```bash
+gh auth login
+```
+
+Choose:
+- `GitHub.com`
+- `HTTPS`
+- Authenticate via browser or use a Personal Access Token (PAT)
+
+Check your authentication:
+```bash
+gh auth status
+```
+Expected output:
+```
+github.com
+  ✓ Logged in to github.com as YOUR_USERNAME (keyring)
+  ✓ Git operations for github.com configured to use https protocol.
+  ✓ Token: ***
+  ✓ Token scopes: gist, read:org, repo, workflow
+```
+
+---
+
+### 3. Switch GitHub Account (if needed)
+
+If you're logged in as the wrong GitHub user:
+
+```bash
+gh auth logout
+gh auth login
+```
+
+Then repeat the authentication steps above with the correct account.
+
+---
+
+## 📤 Running a Workflow
+
+To trigger a workflow manually using the GitHub CLI:
+
+### 🔀 Example Workflow: `base-provision-workflow-v2.yaml`
+
+```bash
+gh workflow run base-provision-workflow-v2.yaml \
+  --ref feature/RA-POD-000_addind_reuseful_actions \
+  -f environment=uat \
+  -f mode=apply
+```
+
+> 💡 Make sure the workflow file exists in `.github/workflows/` and is committed in the branch you're referencing with `--ref`.
+
+---
+
+## 📜 Input Parameters
+
+| Input         | Type         | Required | Description              | Options                                       |
+|---------------|--------------|----------|--------------------------|-----------------------------------------------|
+| `environment` | `environment`| ✅       | Target environment       | e.g., `dev`, `uat`, `prod`                    |
+| `mode`        | `choice`     | ✅       | Terraform execution mode | `validate`, `plan`, `apply`, `destroy`, `plan-destroy` |
+
+---
+
+## 📡 Monitoring Workflow Status
+
+```bash
+gh run list            # Show recent workflow runs
+gh run view            # View details of the latest run
+gh run view --log      # Show logs for the latest run
+gh run watch           # Live view of a running workflow
+```
+
+---
+
+## 💬 Troubleshooting
+
+- ❌ **404 Not Found** when running or listing workflows?
+  - Confirm you're in the right repo folder: `cd terraform-cd`
+  - Or explicitly set the repo:
+    ```bash
+    gh workflow list -R ivan-sample-org/terraform-cd
+    ```
+
+- ❌ **Workflow not found**?
+  - Use `gh workflow list` to get the actual name or ID of the workflow.
+
+- ⛔ **Permission errors**?
+  - Ensure your token has `repo`, `workflow`, and `read:org` scopes.
+
+- ⚠️ **Missing workflow file in the branch?**
+  - Verify it exists with:
+    ```bash
+    git checkout feature/RA-POD-000_addind_reuseful_actions
+    ls .github/workflows/
+    ```
+  - Make sure the file is committed and pushed:
+    ```bash
+    git add .github/workflows/base-provision-workflow-v2.yaml
+    git commit -m "Add workflow"
+    git push origin feature/RA-POD-000_addind_reuseful_actions
+    ```
+
+---
+
+## 🙌 Need Help?
+
+Ping @ivancho in Teams if you hit issues!
+

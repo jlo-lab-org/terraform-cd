@@ -23,12 +23,8 @@ on:
         description: 'Publish plan to PR'
         default: false
 
+
 env:
-  ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
-  #ARM_CLIENT_SECRET: "${{ secrets.AZURE_CLIENT_SECRET }}"
-  ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
-  ARM_SUBSCRIPTION_ID: "${{ vars.AZURE_SUBSCRIPTION_ID }}"
-  DEFAULT_ENVIRONMENT: "${{ vars.DEFAULT_ENVIRONMENT }}"
   TERRAFORM_LOCK_TIMEOUT: ${{ vars.TERRAFORM_LOCK_TIMEOUT || '20m' }}
   working-directory: "${{ inputs.workflow }}"
   TERRAFORM_VERSION: "1.7.3"
@@ -63,12 +59,16 @@ jobs:
 
       - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
 
-      - name: Azure Login
+      - name: Azure Login via OIDC
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          
+        env:
+          ARM_USE_OIDC: true
+
 
       - name: Setup Terraform variables
         working-directory: ${{ env.working-directory }}
@@ -76,10 +76,10 @@ jobs:
         run: |-
           cat > global.auto.tfvars << EOF
           location = "${{ vars.AZURE_LOCATION }}"
-          echo "env_name = ***${{ vars.ENV_NAME }}***" >> "${GITHUB_OUTPUT}"
-          echo "env_prefix = ***${{ vars.ENV_PREFIX }}***" >> "${GITHUB_OUTPUT}"
-          echo "subscription_id = ***${{ vars.AZURE_SUBSCRIPTION_ID }}***" >> "${GITHUB_OUTPUT}"
-          echo "azure_subscription_id_global = ***${{ vars.AZURE_SUBSCRIPTION_ID_GLOBAL }}***" >> "${GITHUB_OUTPUT}"
+          env_name = "${{ vars.ENV_NAME }}"
+          env_prefix = "${{ vars.ENV_PREFIX }}"
+          user_name = "${{ vars.USER_NAME }}"
+          subscription_id = "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
           EOF
 
           echo "${{ inputs.vars-file }}" > vars-file.auto.tfvars
@@ -100,7 +100,7 @@ jobs:
 
       - name: Terraform Init
         run: | 
-          terraform init -backend-config="subscription_id=${{ vars.TF_STATE_SUB }}" -backend-config="resource_group_name=${{ vars.TF_STATE_RG }}" -backend-config="storage_account_name=${{ vars.TF_STATE_SA }}" -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" -backend-config="key=${{ vars.TF_STATE_NAME }}" -backend-config="use_azuread_auth=true" -no-color
+          terraform init -backend-config="subscription_id=${{ vars.TF_STATE_SUB }}" -backend-config="resource_group_name=${{ vars.TF_STATE_RG }}" -backend-config="storage_account_name=${{ vars.TF_STATE_SA }}" -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" -backend-config="key=${{ inputs.tf-state-name }}" -backend-config="use_azuread_auth=true" -no-color
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -124,14 +124,33 @@ jobs:
           set -o pipefail
           export exitcode=0
           if [ ${{ inputs.mode }} == 'apply' ] || [ ${{ inputs.mode }} == 'plan' ]; then
-            terraform plan -lock-timeout=${{ env.TERRAFORM_LOCK_TIMEOUT }} -input=false -no-color -detailed-exitcode -out tfplan | tee terraform-plan.txt; export exitcode=$?
+            terraform plan \
+              -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+              -lock-timeout=${{ env.TERRAFORM_LOCK_TIMEOUT }} \
+              -input=false \
+              -no-color \
+              -detailed-exitcode \
+              -out=tfplan | tee terraform-plan.txt
           else
-            terraform plan -lock-timeout=${{ env.TERRAFORM_LOCK_TIMEOUT }} -input=false -destroy -no-color -detailed-exitcode -out tfplan | tee terraform-plan.txt; export exitcode=$?
+            terraform plan \
+              -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+              -lock-timeout=${{ env.TERRAFORM_LOCK_TIMEOUT }} \
+              -input=false \
+              -destroy \
+              -no-color \
+              -detailed-exitcode \
+              -out=tfplan | tee terraform-plan.txt
           fi
           echo "exitcode=$exitcode"
           echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
           # TODO: Check with the working directory
           echo "workflow=$(basename ${{ env.working-directory }})" >> $GITHUB_OUTPUT
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_USE_OIDC: true
+
         continue-on-error: true
         shell: bash
         working-directory: ${{ env.working-directory }}
@@ -218,18 +237,20 @@ jobs:
         if: steps.plan.outputs.exitcode == 1
         run: exit 1
   
-  Approve:
-    environment: "${{ inputs.environment }}_approvers"
-    runs-on: ubuntu-latest
-    needs: Terraform-Plan
-    if: ${{ needs.Terraform-Plan.outputs.exitcode == 2 && (inputs.mode == 'apply' || inputs.mode == 'destroy') }}
-    steps:
-      - name: Approved Message
-        run: |
-          echo "Terraform plan has been approved. Proceeding with apply."
+  #Approve:
+   # environment: "${{ inputs.environment }}_approvers"
+   # runs-on: ubuntu-latest
+   # needs: Terraform-Plan
+   # if: ${{ needs.Terraform-Plan.outputs.exitcode == 2 && (inputs.mode == 'apply' || inputs.mode == 'destroy') }}
+   # steps:
+    #  - name: Approved Message
+     #   run: |
+      #    echo "Terraform plan has been approved. Proceeding with apply."
+
   Terraform-Apply:
     runs-on: ubuntu-latest
-    needs: [Terraform-Plan, Approve]
+    needs: [Terraform-Plan]
+    #needs: [Terraform-Plan, Approve]
     environment: "${{ inputs.environment }}"
     # Exit codes:
     # 0: Success (With no diff) ---> No terraform changes
@@ -245,17 +266,17 @@ jobs:
           terraform_wrapper: ${{ env.TERRAFORM_WRAPPER }}
 
       - run: terraform --version
-
-      - name: Login to Azure
-        uses: azure/login@v1
+      
+      - name: Azure Login
+        uses: azure/login@v2
         with:
-          creds: |
-            {
-              "clientSecret":  "${{ secrets.AZURE_CLIENT_SECRET }}",
-              "subscriptionId":  "${{ vars.AZURE_SUBSCRIPTION_ID }}",
-              "tenantId":  "${{ secrets.AZURE_TENANT_ID }}",
-              "clientId":  "${{ secrets.AZURE_CLIENT_ID }}"
-            }
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          
+        env:
+          ARM_USE_OIDC: true
+    
 
       - name: Terraform Init
         run: | 
@@ -275,5 +296,10 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -no-color tfplan
-        #run: terraform -chdir=azure/workflows/base ${{ github.event.inputs.terraform_mode }} -auto-approve -var="azure_subscription_id_global=${{secrets.AZURE_SUBSCRIPTION_ID}}"
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_USE_OIDC: true
+        #run: terraform -chdir=azure/workflows/base ${{ github.event.inputs.terraform_mode }} -auto-approve -var="subscription_id=${{secrets.AZURE_SUBSCRIPTION_ID}}"
         working-directory: ${{ env.working-directory }}

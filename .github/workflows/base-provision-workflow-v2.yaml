@@ -27,6 +27,7 @@ permissions:
   contents: write
   pull-requests: write
   packages: read
+  id-token: write
 
 env:
   TERRAFORM_AUTO_TFVARS_FILENAME: "base-infrastructure.auto.tfvars"
@@ -64,6 +65,16 @@ jobs:
           echo "tfstate_resource_group_name = ***${{ vars.TF_STATE_RG }}***" >> "${GITHUB_OUTPUT}"
           echo "tfstate_name = ***${{ format('{0}-base-infrastructure.tfstate', vars.ENV_PREFIX) }}***" >> "${GITHUB_OUTPUT}"
           echo "tfstate_subscription_id = ***${{ vars.TF_STATE_SUB }}***" >> "${GITHUB_OUTPUT}"
+          echo "flux_git_url = ***${{ vars.FLUX_GIT_URL }}***" >> "${GITHUB_OUTPUT}"
+          echo "flux_git_https_user = ***${{ vars.FLUX_GIT_USERNAME }}***" >> "${GITHUB_OUTPUT}"
+          echo "flux_git_reference_type = ***${{ vars.FLUX_GIT_REF_TYPE }}***" >> "${GITHUB_OUTPUT}"
+          echo "flux_git_branch = ***${{ vars.FLUX_GIT_BRANCH }}***" >> "${GITHUB_OUTPUT}"
+          echo "node_pool_min_count = ***${{ vars.NODE_POOL_MIN_COUNT }}***" >> "${GITHUB_OUTPUT}"
+          echo "node_pool_max_count = ***${{ vars.NODE_POOL_MAX_COUNT }}***" >> "${GITHUB_OUTPUT}"
+          echo "node_pool_max_pods_win = ***${{ vars.NODE_POOL_MAX_PODS_WIN }}***" >> "${GITHUB_OUTPUT}"
+          echo "flux_git_reference_value = ***${{ vars.FLUX_GIT_REF_VALUE }}***" >> "${GITHUB_OUTPUT}"
+
+
           echo "${delimiter}" >> "${GITHUB_OUTPUT}"
     
 
@@ -76,8 +87,10 @@ jobs:
       mode: ${{ needs.setup-base-infrastructure.outputs.mode }}
       vars-file: ${{ needs.setup-base-infrastructure.outputs.vars-file }}
       tf-state-name: ${{ needs.setup-base-infrastructure.outputs.tf-state-name }}
+      #tf-state-name: "terraform.tfstate"
       environment: ${{ needs.setup-base-infrastructure.outputs.environment }}
       publish-plan-on-pr: ${{ github.event_name == 'pull_request' }}
+    secrets: inherit
 
 
 

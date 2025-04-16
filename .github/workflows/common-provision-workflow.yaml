@@ -1,0 +1,105 @@
+name: 🌎common-provision-workflow
+run-name: (${{ github.actor }}${{ format('{0}{1}', inputs.remote_source && '-' || '', inputs.remote_source && inputs.remote_source || '' ) }}-${{ inputs.environment }}-${{ inputs.mode }}-${{ inputs.tenant }}) Base Infrastructure Provision via Terraform
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        type: environment
+        required: true
+      mode:
+        type: choice
+        required: true
+        description: 'Terraform Mode'
+        options:
+          - validate
+          - plan
+          - apply
+          - destroy
+          - plan-destroy
+      remote_source:
+        description: 'Remote source'
+        type: string
+        required: false
+
+
+permissions: 
+  contents: write
+  pull-requests: write
+  packages: read
+  id-token: write
+
+env:
+  TERRAFORM_AUTO_TFVARS_FILENAME: "common-infrastructure.auto.tfvars"
+  WORKING_DIRECTORY: "./azure/workflows/common"
+jobs:
+  setup-common-infrastructure:
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'ftdslabs' }}
+    runs-on: ubuntu-latest
+    name: "Common Infrastructure Terraform Variables"
+    outputs:
+      environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'ftdslabs' }}
+      working-directory: ${{ env.WORKING_DIRECTORY }}
+      tf-state-name: ${{ format('{0}-common-infrastructure.tfstate', vars.ENV_PREFIX) }}
+      mode:  ${{ inputs.mode }}
+      vars-file: ${{ steps.vars.outputs.vars_file }}
+    steps:
+      - name: "Checkout Repository"
+        uses: actions/checkout@v4
+
+      - name: "Setup Common Infrastructure Terraform Variables"
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        id: vars
+        run: |
+          delimiter="$(openssl rand -hex 8)"
+          echo "vars_file<<${delimiter}" >> "${GITHUB_OUTPUT}"
+
+          # Add some variables here
+          # It's necessary to use "***" so that it can be later replaced by a double quote in the terraform reusable workflow
+          # some_other_var = ***${{vars.SOME_OTHER_VAR}}***">> "${GITHUB_OUTPUT}"
+
+          
+          echo "tfstate_storage_account_name = ***${{ vars.TF_STATE_SA }}***" >> "${GITHUB_OUTPUT}"
+          echo "tfstate_container_name = ***${{ vars.TF_STATE_CONTAINER }}***" >> "${GITHUB_OUTPUT}"
+          echo "tfstate_resource_group_name = ***${{ vars.TF_STATE_RG }}***" >> "${GITHUB_OUTPUT}"
+          echo "tfstate_name = ***${{ format('{0}-common-infrastructure.tfstate', vars.ENV_PREFIX) }}***" >> "${GITHUB_OUTPUT}"
+          echo "tfstate_subscription_id = ***${{ vars.TF_STATE_SUB }}***" >> "${GITHUB_OUTPUT}"
+          # echo "flux_git_url = ***${{ vars.FLUX_GIT_URL }}***" >> "${GITHUB_OUTPUT}"
+          # echo "flux_git_https_user = ***${{ vars.FLUX_GIT_USERNAME }}***" >> "${GITHUB_OUTPUT}"
+          # echo "flux_git_reference_type = ***${{ vars.FLUX_GIT_REF_TYPE }}***" >> "${GITHUB_OUTPUT}"
+          # echo "flux_git_branch = ***${{ vars.FLUX_GIT_BRANCH }}***" >> "${GITHUB_OUTPUT}"
+          # echo "node_pool_min_count = ***${{ vars.NODE_POOL_MIN_COUNT }}***" >> "${GITHUB_OUTPUT}"
+          # echo "node_pool_max_count = ***${{ vars.NODE_POOL_MAX_COUNT }}***" >> "${GITHUB_OUTPUT}"
+          # echo "node_pool_max_pods_win = ***${{ vars.NODE_POOL_MAX_PODS_WIN }}***" >> "${GITHUB_OUTPUT}"
+          # echo "flux_git_reference_value = ***${{ vars.FLUX_GIT_REF_VALUE }}***" >> "${GITHUB_OUTPUT}"
+
+
+          echo "${delimiter}" >> "${GITHUB_OUTPUT}"
+
+      - name: "Show terraform variables"
+        run: |
+          echo -e "tfstate_storage_account_name: \033[0;32m ${{ vars.TF_STATE_SA }} \033[0m"
+          echo -e "tfstate_container_name = \033[0;32m ${{ vars.TF_STATE_CONTAINER }} \033[0m" 
+          echo -e "tfstate_resource_group_name = \033[0;32m ${{ vars.TF_STATE_RG }} \033[0m"
+          echo -e "tfstate_name = \033[0;32m ${{ format('{0}-common-infrastructure.tfstate', vars.ENV_PREFIX) }} \033[0m"
+          echo -e "tfstate_subscription_id = \033[0;32m ${{ vars.TF_STATE_SUB }} \033[0m"
+    
+
+  base-infrastructure:
+    needs: [setup-common-infrastructure]
+    uses: ./.github/workflows/terraform-reusable-workflow.yaml
+    name: "Common Infrastructure Terraform"
+    with: 
+      workflow: ${{ needs.setup-common-infrastructure.outputs.working-directory }}
+      mode: ${{ needs.setup-common-infrastructure.outputs.mode }}
+      vars-file: ${{ needs.setup-common-infrastructure.outputs.vars-file }}
+      tf-state-name: ${{ needs.setup-common-infrastructure.outputs.tfstate_name }}
+      #tf-state-name: "terraform.tfstate" 
+      environment: ${{ needs.setup-common-infrastructure.outputs.environment }}
+      publish-plan-on-pr: ${{ github.event_name == 'pull_request' }}
+    secrets: inherit
+
+
+
+           
+        

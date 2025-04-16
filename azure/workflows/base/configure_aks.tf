@@ -1,9 +1,9 @@
 module "k8s" {
-  source   = "../../modules/k8s"
-  aks_name = local.aks_name
+  source       = "../../modules/k8s"
+  aks_name     = local.aks_name
   aks_dns_name = local.aks_name
-  rg_name  = module.k8s_rg.name
-  location = module.k8s_rg.location
+  rg_name      = module.k8s_rg.name
+  location     = module.k8s_rg.location
 
   # Default pool
   node_pool_name              = var.node_pool_name
@@ -53,13 +53,13 @@ resource "kubernetes_namespace" "namespaces_without_istio_inject" {
 }
 
 #resource "azurerm_role_assignment" "attach_acr" {
- # depends_on = [module.k8s, module.common_acr]
-  # principal needs to be kubelet identity - 
-  #  see https://stackoverflow.com/questions/59978060/how-to-give-permissions-to-aks-to-access-acr-via-terraform
- # principal_id                     = module.k8s.aks_kubelet_identity
- # role_definition_name             = "AcrPull"
- # scope                            = module.common_acr.id
- # skip_service_principal_aad_check = true
+# depends_on = [module.k8s, module.common_acr]
+# principal needs to be kubelet identity - 
+#  see https://stackoverflow.com/questions/59978060/how-to-give-permissions-to-aks-to-access-acr-via-terraform
+# principal_id                     = module.k8s.aks_kubelet_identity
+# role_definition_name             = "AcrPull"
+# scope                            = module.common_acr.id
+# skip_service_principal_aad_check = true
 #}
 
 resource "kubernetes_storage_class" "ra-azurefile" {
@@ -86,11 +86,11 @@ resource "kubernetes_storage_class" "ra-azurefile" {
 
 resource "kubernetes_secret" "docker_container_secret" {
   metadata {
-    name      = var.docker_container_secret_name
+    name = var.docker_container_secret_name
     #namespace = var.docker_container_secret_namespace
     namespace = kubernetes_namespace.namespaces_with_istio_inject[0].metadata[0].name
   }
-  
+
   data = {
     ".dockerconfigjson" = jsonencode({
       auths = {

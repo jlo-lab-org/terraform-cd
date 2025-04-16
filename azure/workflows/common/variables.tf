@@ -1,4 +1,4 @@
-variable "azure_subscription_id_global" {}
+#variable "azure_subscription_id_global" {}
 
 variable "location" {
   default     = "centralus"
@@ -6,7 +6,7 @@ variable "location" {
 }
 
 variable "env_prefix" {
-  default = "labenv2"
+  default = "ftdsu"
 }
 
 variable "acr_sku" {
@@ -37,7 +37,7 @@ variable "acr_public_network_enabled" {
 }
 
 variable "env_name" {
-  default = "sboxt2"
+  default = "uat"
   type    = string
 }
 
@@ -61,13 +61,13 @@ variable "location_pair" {
 
 variable "tags" {
   default = {
-    "ApplicationName"    = "labs Cloud Services"
+    "ApplicationName"    = "labs Cloud Services Manticore"
     "ApplicationTag"     = "lan=bs Cloud"
     "Capability"         = "Network and Cloud Services"
     "DataClassification" = "Confidential"
-    "Environment"        = "Sandbox"
-    "Lifespan"           = "Months"
-    "OwnerEmail"         = "ivanhidalgo22@gmail.com"
+    "Environment"        = "Sandbox UAT"
+    "Lifespan"           = "Temporaly"
+    "OwnerEmail"         = "juanfelipe.lopez@rockwellautomation.com"
     "ProjectInitiative"  = "Default Project"
     "ServiceClass"       = "User Managed"
   }
@@ -211,9 +211,4 @@ variable "tfstate_key" {
 variable "subscription_id" {
   type        = string
   description = "Azure subscription ID."
-}
-
-variable "tfstate_subscription_id" {
-  type        = string
-  description = "Subscription ID for Terraform state."
 }

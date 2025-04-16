@@ -35,7 +35,7 @@ variable "enable_non_ssl_port" {
   description = "Enable non-SSL port (6379) for Redis Cache"
   type        = bool
   default     = false
-  
+
 }
 variable "minimum_tls_version" {
   description = "Minimum TLS version for Redis Cache"
@@ -47,5 +47,5 @@ variable "redis_cache_name_prefix" {
   description = "Prefix for the Azure Redis Cache name"
   type        = string
   default     = "appcache"
-  
+
 }

@@ -20,5 +20,5 @@ variable "publisher_email" {
 
 variable "k8s-prefix" {
   description = "lab"
-  default = "test"
+  default     = "test"
 }
